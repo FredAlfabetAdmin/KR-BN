@@ -1,7 +1,8 @@
 from typing import Union
 from BayesNet import BayesNet
+import pandas as pd
 
-
+# I guess dat dit werkt, alleen weet ik niet helemaal hoe ik met bNRReasoner moet werken dus de structuur klopt niet helemaal...
 class BNReasoner:
     def __init__(self, net: Union[str, BayesNet]):
         """
@@ -16,47 +17,54 @@ class BNReasoner:
             self.bn = net
 
     # TODO: This is where your methods should go
-    print("hi")
+    # print("hi")
 
-def run():
-    # bayesnet = BNReasoner("testing/lecture_example.BIFXML") 
+def run(Queri, evidence):
     bn = BayesNet()
     bn.load_from_bifxml("testing/lecture_example.BIFXML")
+    # BayesNet.draw_structure(bn)
+   #Is needed for pd.Series
+    e = []
+    for k in evidence:
+        e.append(k)
+    Network_Pruning(bn, Queri, pd.Series(data= evidence, index = e))
+    # BayesNet.draw_structure(bn)
+    # print(BayesNet.get_all_cpts(bn))
+    # print(BayesNet.get_all_variables(bn))
 
-    # Obtain children
-    children = bn.get_children('Rain?')
+def Network_Pruning(bn, Q, evidence):
 
-    for child in children:
-        # Obtain child node
-        cpt = bn.get_cpt(child)
+    #Edge Pruning
+    children = dict()
+    e = list()
 
-        # Delete edge
-        bn.del_edge(('Rain?',child))
+    #Get edges between nodes by asking for children, which are save in a list (children)
+    #Adds the evidence to list e such that later on, these nodes will not be removed from the BN
+    for u, v in evidence.items():
+        children[u] = (BayesNet.get_children(bn, u))
+        e.append(u)    
 
-        # Get new CPT, given the evidence
-        new_cpt = bn.get_compatible_instantiations_table(pd.Series({'Rain?': False}),cpt)
-
-        # Delete the column with evidence
-
-        print(new_cpt)
+    #Remove edges between evidence and children
+    #Replaces the factors/cpt to the reduced factors/cpt 
+    for key in children:
+        for value in children[key]:
+            BayesNet.del_edge(bn,(key,value))
+            BayesNet.update_cpt(bn, value, BayesNet.reduce_factor(evidence, BayesNet.get_cpt(bn, value)))
+   
+    #Node Pruning
+    #Need to keep removing leafnodes untill all leafnodes that can be removed are removed
+    i = 1
+    while i > 0:
+        i = 0
+        var = BayesNet.get_all_variables (bn)
+        for v in var:
+            child = BayesNet.get_children(bn, v)
+            #If node is a leaf node and not in the Q or e, remove from bn
+            if len(child) == 0 and v not in Q and v not in e:
+                BayesNet.del_var(bn, v)                
+                i += 1   
     
-
-
-    # print(bn.get_cpt(children[0]))
-    # print(bn.get_cpt(children[1]))
-
-
-
-
-
-
-    # bn.del_edge(self, edge):
-    #     """
-    #     Delete an edge form the structure of the BN.
-    #     :param edge: Edge to be deleted (e.g. ('A', 'B')).
-    #     """
-
 if __name__ == "__main__":
-    print("Start run ------------------------------------")
-    run()
-    print("End run --------------------------------------")
+    run(["Rain?"],{"Winter?": True})
+
+    
