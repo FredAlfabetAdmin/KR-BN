@@ -3,7 +3,14 @@ from BayesNet import BayesNet
 import pandas as pd
 from copy import deepcopy
 import random
+from time import time
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
+import scipy.stats as stats
+import seaborn as sns
 
+print("Finished importing")
 
 class BNReasoner_:
     def __init__(self, net: Union[str, BayesNet]):
@@ -438,7 +445,7 @@ class BNReasoner_:
                 return self.joint_prob()
         else:
             cpt = self.bn.get_all_cpts()
-            #reduce factors by evidence 
+            #reduce factors by evidence
             if len(e) != 0:
                 # print("e is working")
                 
@@ -525,18 +532,20 @@ class BNReasoner_:
                 for factor in to_multiply:
                     n = self.multiply_factors(n, factor)             
             n = self.maxing_out(n, s)
+       
+        n[" "] = 'T'
+        p = n["p"].max()
         
-        m = deepcopy(n)
-        m[" "] = 'T'
+        n = n[n['p'] == p]
         
         list_order_cpt = list()
-        for item in list(m.columns):
+        for item in list(n.columns):
             if item == 'p':
                 list_order_cpt = [' ', 'p'] + list_order_cpt
             elif item != ' ':
                 list_order_cpt.append(item)
-        m = m[list_order_cpt]
-        return m   
+        n = n[list_order_cpt]
+        return n  
 
 Pruning = False
 check_d_separation = False #True
@@ -546,112 +555,333 @@ MaxingOut = False
 MultiplyFactor = False #True
 Ordering = False #True
 Variable_Elimination = False #True
-Marginal_distribution = False #True
-Map = False#True
+Marginal_distribution = True #True
+Map = True#True
 Mpe = True
 
-if Pruning:
-    bnreasoner = BNReasoner_("testing/lecture_example.BIFXML")
-    Queri, evidence = ["Wet Grass?"], {"Winter?": True,"Rain?": False}
-    return_bn = bnreasoner.Network_Pruning(bnreasoner.bn, Queri, evidence)
-    print("----------------------")
-    print(return_bn.get_all_cpts())
-    return_bn.draw_structure()
+settings = {
+    "Pruning":{"Enabled":Pruning, "data":[],"label":"Pruning"},
+    "check_d_separation":{"Enabled": check_d_separation, "data":[],"label":"D-seperation"}, 
+    "Independence":{"Enabled":Independence, "data":[],"label":"Independence"}, 
+    "Marginalization":{"Enabled":Marginalization, "data":[],"label":"Marginalization"}, 
+    "MaxingOut":{"Enabled":MaxingOut, "data":[],"label":"Maxing out"}, 
+    "MultiplyFactor":{"Enabled":MultiplyFactor, "data":[],"label":"Multiply factor"}, 
+    "Ordering":{"Enabled":Ordering, "data_degree":[], "data_fill":[],"label":"Ordering"}, 
+    "Variable_Elimination":{"Enabled":Variable_Elimination, "data_degree":[], "data_fill":[], "label":"Variable elimination"}, 
+    "Marginal_distribution":{"Enabled":Marginal_distribution, "data_degree":[], "data_fill":[],"label":"Marginal Distribution"}, 
+    "Map":{"Enabled":Map, "data_degree":[], "data_fill":[],"label":"MAP"}, 
+    "Mpe":{"Enabled":Mpe, "data_degree":[], "data_fill":[],"label":"MPE"}
+}
+
+#q = ["Winter?", "Rain?"]
+#evidence = {"Sprinkler?":True}
+q = ["jaundice","cirrhosis", "excessive-alcohol-use"]
+#evidence = {"excessive-alcohol-use":True}
+#evidence= {"liver-cancer": False}
+evidence = {"colon-cancer":False}
+
+#file = "testing/lecture_example.BIFXML"
+file = "testing/usecase.BIFXML"
+size = 1000
+
+#x_to_sum_out = "Rain?"
+#x_to_sum_out = "genetic-predisposition-cancer"
+#x_to_sum_out = "breast-cancer"
+#_set = ["breast-cancer"]
+#_set = "genetic-predisposition-cancer"
+#_set = "x"
+#_set = "Wet Grass?"
+#_set = "Wet Grass?"
+#_set = ["Winter?","Rain?", "Wet Grass?", "Sprinkler?"]
+#_set = ["Winter?","Rain?", "Wet Grass?"]
+_set = ["excessive-alcohol-use",
+	"hepatitis",
+	#"genetic-predisposition-cancer",
+	#"jaundice",
+	#"breast-cancer",
+	#"colon-cancer",
+	"liver-biopsy",
+	"metastases",
+	"liver-cancer",
+	"cirrhosis"]
+
+for iteration in range(size):
+    if iteration % (size/10) == 0:
+        print(f"Iteration: {iteration}")
+
+    if Pruning:
+        bnreasoner = BNReasoner_(file)
+        Queri, evidence = ["Wet Grass?"], {"Winter?": True,"Rain?": False}
+        starttime = time()
+        return_bn = bnreasoner.Network_Pruning(bnreasoner.bn, Queri, evidence)
+        settings["Pruning"]["data"].append(time()-starttime)
+        #print("----------------------")
+        #print(return_bn.get_all_cpts())
+        return_bn.draw_structure()
+        
+    #determine whether X is d-seperated from Y by Z
+    if check_d_separation:
+        bnreasoner = BNReasoner_(file)
+        Y = ["Slippery Road?"]
+        X = ["Sprinkler?"]
+        Z = ["Winter?"]
+        starttime = time()
+        if bnreasoner.d_separation(X,Y,Z):
+            #print(X, "is d-separated from ", Y, "by ", Z)
+            pass
+        else:
+            #print(X, "is not d-separated from ", Y, "by ", Z)
+            pass
+        settings["check_d_separation"]["data"].append(time()-starttime)
+
+    if Independence:
+        #Ik weet niet zeker of de implementatie van independence compleet of efficient is,
+        #maar I guess dat het werkt, het is gebaseerd op DAGs en de Markov Property en Symmetry
+        #zijn denk ik geimplementeerd.
+        bnreasoner = BNReasoner_(file)
+        Y = ["Sprinkler?"]
+        X = ["Slippery Road?"]
+        Z = ["Winter?"] 
+        starttime = time()
+        if bnreasoner.independence(bnreasoner.bn, X,Y,Z):
+            #print(X, "is independent from ", Y, "given ", Z)
+            pass
+        else:
+            #print(X, "is not independent from ", Y, "given ", Z)
+            pass
+        settings["Independence"]["data"].append(time()-starttime)
+
+    if Marginalization:
+        bnreasoner = BNReasoner_(file)
+        #X = "Rain?"
+        X = x_to_sum_out
+        starttime = time()
+        #cpt = BayesNet.get_cpt(bnreasoner.bn, "Wet Grass?")
+        if isinstance(_set, (list, tuple, np.ndarray)):
+            _set = _set[0]
+        cpt = BayesNet.get_cpt(bnreasoner.bn, _set)
+        # print(cpt)
+        marg = bnreasoner.marginalization(cpt, X)
+        settings["Marginalization"]["data"].append(time()-starttime)
+        print("Marginalization:")
+        print(marg)
+        #print(marg)
+
+    if MaxingOut:
+        bnreasoner = BNReasoner_(file)
+        X = "Rain?"
+        starttime = time()
+        cpt = BayesNet.get_cpt(bnreasoner.bn,X)
+        maxout = bnreasoner.maxing_out(cpt,X)
+        #print(maxout)
+        settings["MaxingOut"]["data"].append(time()-starttime)
     
-#determine whether X is d-seperated from Y by Z
-if check_d_separation:
-    bnreasoner = BNReasoner_("testing/lecture_example.BIFXML")
-    Y = ["Slippery Road?"]
-    X = ["Sprinkler?"]
-    Z = ["Winter?"]
-    if bnreasoner.d_separation(X,Y,Z):
-        print(X, "is d-separated from ", Y, "by ", Z)
-    else:
-        print(X, "is not d-separated from ", Y, "by ", Z)
+    if MultiplyFactor:
+        bnreasoner = BNReasoner_(file)
+        X = 'Sprinkler?'
+        Y = 'Rain?'
+        starttime = time()
+        cpt_1 = BayesNet.get_cpt(bnreasoner.bn, X)
+        cpt_2 = BayesNet.get_cpt(bnreasoner.bn,Y)
+        multipliedfactors = bnreasoner.multiply_factors(cpt_1,cpt_2)
+        #print(multipliedfactors)
+        settings["MultiplyFactor"]["data"].append(time()-starttime)
+        
+    if Ordering:
+        bnreasoner = BNReasoner_(file)
+        #Set = ["Winter?","Rain?", "Wet Grass?", "Sprinkler?"]#BayesNet.get_all_variables(bnreasoner.bn)
+        Set = _set
+        Set = BayesNet.get_all_variables(bnreasoner.bn)
+        #if not isinstance(Set, (list, tuple, np.ndarray)):
+            #Set = [Set]
+        #Set = ["Winter?","Rain?", "Wet Grass?", "Sprinkler?"]
 
-if Independence:
-    #Ik weet niet zeker of de implementatie van independence compleet of efficient is,
-    #maar I guess dat het werkt, het is gebaseerd op DAGs en de Markov Property en Symmetry
-    #zijn denk ik geimplementeerd.
-    bnreasoner = BNReasoner_("testing/lecture_example.BIFXML")
-    Y = ["Sprinkler?"]
-    X = ["Slippery Road?"]
-    Z = ["Winter?"] 
-    if bnreasoner.independence(bnreasoner.bn, X,Y,Z):
-        print(X, "is independent from ", Y, "given ", Z)
-    else:
-        print(X, "is not independent from ", Y, "given ", Z)
+        starttime = time()
+        mindeg = bnreasoner.minimum_degree_ordering(bnreasoner.bn, Set) 
+        settings["Ordering"]["data_degree"].append(time()-starttime)
+        
+        #print(mindeg)
 
-if Marginalization:
-    bnreasoner = BNReasoner_("testing/lecture_example.BIFXML")
-    X = "Rain?"
-    cpt = BayesNet.get_cpt(bnreasoner.bn,"Wet Grass?")
-    # print(cpt)
-    print(bnreasoner.marginalization(cpt, X))
+        starttime = time()
+        minfill = bnreasoner.minimum_fill_ordering(bnreasoner.bn, Set)
+        settings["Ordering"]["data_fill"].append(time()-starttime)
+        #print(minfill)
+        #print(mindeg)
+        #print(minfill)
+        
 
-if MaxingOut:
-    bnreasoner = BNReasoner_("testing/lecture_example.BIFXML")
-    X = "Rain?"
-    cpt = BayesNet.get_cpt(bnreasoner.bn,X)
-    print(bnreasoner.maxing_out(cpt,X))
-   
-if MultiplyFactor:
-    bnreasoner = BNReasoner_("testing/lecture_example.BIFXML")
-    X = 'Sprinkler?'
-    Y = 'Rain?'
-    cpt_1 = BayesNet.get_cpt(bnreasoner.bn, X)
-    cpt_2 = BayesNet.get_cpt(bnreasoner.bn,Y)
-    print(bnreasoner.multiply_factors(cpt_1,cpt_2)) 
-    
-if Ordering:
-    bnreasoner = BNReasoner_("testing/lecture_example.BIFXML")
-    Set = ["Winter?","Rain?", "Wet Grass?", "Sprinkler?"]#BayesNet.get_all_variables(bnreasoner.bn)
-    print(bnreasoner.minimum_degree_ordering(bnreasoner.bn, Set))
-    print(bnreasoner.minimum_fill_ordering(bnreasoner.bn, Set))
+    if Variable_Elimination:
+        #print("---------")
+        #print("Variable Elimination")
+        bnreasoner = BNReasoner_(file)
+        #Set = ["Winter?", "Rain?", "Wet Grass?","Sprinkler?"]
+        #Set = ["metastases", "liver-cancer", "cirrhosis"]
+        Set = _set
+        # print(Set)
 
-if Variable_Elimination:
-    bnreasoner = BNReasoner_("testing/lecture_example.BIFXML")
-    Set = ["Winter?", "Rain?", "Wet Grass?","Sprinkler?"]
-    # print(Set)
-    Pr_set = bnreasoner.variable_elimination(bnreasoner.get_all_cpts(), to_sum_out_vars=Set, order = "minimum_degree_ordering")
-    print("---------")
-    print(Pr_set)
+        # Degree
+        starttime = time()
+        pr_set_deg = bnreasoner.variable_elimination(bnreasoner.bn.get_all_cpts(), to_sum_out_vars=Set, order = "minimum_degree_ordering")
+        #Pr_set = bnreasoner.variable_elimination(bnreasoner.bn.get_all_cpts(), to_sum_out_vars=[Set], order = "minimum_degree_ordering")
+        settings["Variable_Elimination"]["data_degree"].append(time()-starttime)
 
-if Marginal_distribution:
-    #Ik weet niet zeker of deze klopt
-    bnreasoner = BNReasoner_("testing/lecture_example.BIFXML")
-    q = ["Winter?", "Rain?"]
-    evidence = {"Sprinkler?":True}
-    # ev = list()
-    # if len(evidence) != 0:
-    #     for k in evidence:
-    #         ev.append(k)
-    #     e = pd.Series(data= evidence, index = ev)   
-    # else:
-    #     e = {}
-    #     # e = pd.Series(data= evidence, index = ev)   
-    #     # print(e)
-    # #print(q, e)
-    
-    print("Pr(Q,e)")
-    print(bnreasoner.marginal_distribution(q,evidence))
-    print("Pr(Q)")
-    print(bnreasoner.marginal_distribution(q))
-    
-if Map:
-    bnreasoner = BNReasoner_("testing/lecture_example.BIFXML")
-    q = ["Winter?", "Rain?", "Slippery Road?"]
-    evidence = {"Sprinkler?":True}
-    
-    print(bnreasoner.map(q,evidence))
-    print(bnreasoner.map(q))
-    q = ["Slippery Road?", "Wet Grass?"]
-    evidence = {"Rain?":True, "Winter?":False}
-    print(bnreasoner.map(q))
+        # Fill
+        starttime = time()
+        pr_set_fill = bnreasoner.variable_elimination(bnreasoner.bn.get_all_cpts(), to_sum_out_vars=Set, order = "minimum_fill_ordering")
+        #Pr_set = bnreasoner.variable_elimination(bnreasoner.bn.get_all_cpts(), to_sum_out_vars=[Set], order = "minimum_fill_ordering")
+        settings["Variable_Elimination"]["data_fill"].append(time()-starttime)
+        #print(pr_set_deg)
+        #print(pr_set_fill)
 
-if Mpe:
-    #Returns only the assignments of the var that have been maxed out, want rest is irrelevant
-    #Vaker runnen als je een random extra row heb
-    bnreasoner = BNReasoner_("testing/lecture_example.BIFXML")
-    evidence = {"Slippery Road?": True, "Wet Grass?": False}
-    print(bnreasoner.mpe(evidence))
+
+    if Marginal_distribution:
+        #Ik weet niet zeker of deze klopt
+        bnreasoner = BNReasoner_(file)
+        #q = ["Winter?", "Rain?"]
+        #evidence = {"Sprinkler?":True}
+        # ev = list()
+        # if len(evidence) != 0:
+        #     for k in evidence:
+        #         ev.append(k)
+        #     e = pd.Series(data= evidence, index = ev)   
+        # else:
+        #     e = {}
+        #     # e = pd.Series(data= evidence, index = ev)   
+        #     # print(e)
+        # #print(q, e)
+        
+        starttime = time()
+        prqe = bnreasoner.marginal_distribution(q,evidence, "minimum_degree_ordering")
+        prq = bnreasoner.marginal_distribution(q, order="minimum_degree_ordering")
+        settings["Marginal_distribution"]["data_degree"].append(time()-starttime)
+        
+        starttime = time()
+        prqe = bnreasoner.marginal_distribution(q,evidence, "minimum_fill_ordering")
+        prq = bnreasoner.marginal_distribution(q, order="minimum_fill_ordering")
+        settings["Marginal_distribution"]["data_fill"].append(time()-starttime)
+
+        #print("Pr(Q,e)")
+        #print(prqe)
+        #print("Pr(Q)")
+        #print(prq)
+        
+    if Map:
+        bnreasoner = BNReasoner_(file)
+
+        starttime = time()
+        mapqe =bnreasoner.map(q,evidence) 
+        mapq = bnreasoner.map(q)
+        settings["Map"]["data_degree"].append(time()-starttime)
+        
+        starttime = time()
+        mapqe =bnreasoner.map(q,evidence) 
+        mapq = bnreasoner.map(q)
+        settings["Map"]["data_fill"].append(time()-starttime)
+        
+
+    ''' # This is the old code 
+    if Mpe:
+        #Returns only the assignments of the var that have been maxed out, want rest is irrelevant
+        #Vaker runnen als je een random extra row heb
+        bnreasoner = BNReasoner_(file)
+        evidence = {"Slippery Road?": True, "Wet Grass?": False}
+        starttime = time()
+        mpe = bnreasoner.mpe(evidence)
+        #print(mpe)
+        settings["Mpe"]["data"].append(time()-starttime)
+    '''
+
+    #''' # This is the new code:
+    if Mpe:
+        #Returns only the assignments of the var that have been maxed out, want rest is irrelevant
+        #Vaker runnen als je een random extra row heb
+        bnreasoner = BNReasoner_(file)
+        #evidence = {"cirrhosis": True, "liver-biopsy": True, "liver-cancer": False}
+        
+        starttime = time()
+        mpe = bnreasoner.mpe(evidence, "minimum_degree_ordering")
+        settings["Mpe"]["data_degree"].append(time()-starttime)
+
+        starttime = time()
+        mpe = bnreasoner.mpe(evidence, "minimum_fill_ordering")
+        settings["Mpe"]["data_fill"].append(time()-starttime)
+        #print(mpe)
+    #'''        
+
+colors = []
+for key, value in mcolors.TABLEAU_COLORS.items():
+    colors.append(value)
+
+x = range(0, size)#np.linspace(0, 1, 0.5)
+'''
+first_data_comparison = ""
+second_data_comparison = ""
+data_to_plot = []
+labels = []
+print("XXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+if settings["Ordering"]["Enabled"] or settings["Variable_Elimination"]["Enabled"]:
+    enabled = "Ordering"
+    if settings["Variable_Elimination"]["Enabled"]:
+        enabled = "Variable_Elimination"
+    title += enabled + " "
+    data_to_plot.append(settings[enabled]["data_degree"])
+    data_to_plot.append(settings[enabled]["data_fill"])
+    labels = ["Min Degree", "Min Fill"]
+    first_data_comparison = data_to_plot[0]
+    second_data_comparison = data_to_plot[1]
+else:
+    for key, value in settings.items():
+        if value["Enabled"]:
+            if first_data_comparison == "":
+                first_data_comparison = value["data"]
+                first_data = value["data"]
+            elif second_data_comparison == "":
+                second_data_comparison = value["data"]
+            data_to_plot.append(value["data"])
+            labels.append(value["label"])
+'''
+
+#print(data_to_plot)
+total = pd.DataFrame()
+for key, value in settings.items():
+    #print(value)
+    if value["Enabled"]:
+        rounding = 5
+        result = pd.DataFrame(value['data_degree'], columns=['values'])
+        result['type'] = 'Minimum degree'
+        df_x = pd.DataFrame(value['data_fill'], columns=['values'])
+        df_x['type']='Minimum fill'
+        df = pd.concat([result, df_x])
+        df['label'] = value["label"]
+        total = pd.concat([total, df])
+
+sns.boxplot(y="values", x="type", data=total, hue='label')
+
+
+'''
+for iter in range(len(data_to_plot)):
+    #plt.plot(x, data_to_plot[iter], label=labels[iter], color = colors[iter], alpha = 0.2)
+    smaller = [round(item, rounding) for item in data_to_plot[iter]]
+    #plt.boxplot(smaller,y=iter)
+    #print(smaller)
+    #plt.hist(smaller, bins = size, label = iter, alpha = 0.4)
+
+    #plt.plot(np.arange(0, np.max(smaller) + rounding/size, (np.max(smaller) + rounding/size) /size), smaller)
+    #np.arange(0, np.max(smaller)), 0.01)
+    #plt.plot(np.arange(0, 1, 0.1), smaller, '--')
+    #z = np.polyfit(range(0,1), smaller, 2)
+    #p = np.poly1d(z)
+    #plt.plot(x, p(x), linewidth=1, linestyle="--", color = colors[iter], alpha=1)
+'''
+
+#pvalue = stats.ttest_ind(first_data_comparison, second_data_comparison).pvalue
+#if pvalue > 0.00001:
+    #plt.title(title +f"(p:{'{:,.7f}'.format(pvalue)})")
+#else:
+    #plt.title(title +f"(p:{pvalue})")
+
+plt.title(f"Runtime comparison on query {q} and evidence {evidence}")
+plt.ylabel("Runtime (ms)")
+#plt.legend()
+plt.show()
+plt.clf()
