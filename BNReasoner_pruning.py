@@ -575,14 +575,15 @@ settings = {
 
 #q = ["Winter?", "Rain?"]
 #evidence = {"Sprinkler?":True}
-q = ["jaundice","cirrhosis", "excessive-alcohol-use"]
+q = ["jaundice","cirrhosis"]
 #evidence = {"excessive-alcohol-use":True}
 #evidence= {"liver-cancer": False}
-evidence = {"colon-cancer":False}
+#evidence = {"colon-cancer":False}
+evidence = {"hepatitis":False}
 
 #file = "testing/lecture_example.BIFXML"
 file = "testing/usecase.BIFXML"
-size = 1000
+size = 10
 
 #x_to_sum_out = "Rain?"
 #x_to_sum_out = "genetic-predisposition-cancer"
