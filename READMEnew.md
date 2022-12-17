@@ -19,14 +19,14 @@ In addition, the following packages are used in the code (and may need to be ins
 - scipy.stats
 
 To show that our implementation works, you need to set the corresponding Bool to True in the BNReasoner_pruning.py:
-Pruning = False
-check_d_separation = False
-Independence = False
-Marginalization = False
-MaxingOut =  False
-MultiplyFactor = False
-Ordering = False
-Variable_Elimination = False
-Marginal_distribution = False
-Map = False
-Mpe = False
+- Pruning = False
+- check_d_separation = False
+- Independence = False
+- Marginalization = False
+- MaxingOut =  False
+- MultiplyFactor = False
+- Ordering = False
+- Variable_Elimination = False
+- Marginal_distribution = False
+- Map = False
+- Mpe = False
