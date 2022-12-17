@@ -9,6 +9,15 @@ To be able to run BNReasoner_pruning.py, the packages that need to be installed:
 - copy 
 - random
 
+In addition, the following packages are used in the code (and may need to be installed if not already):
+- time
+- numpy 
+- seaborn
+- matplotlib.pyplot
+- os
+- pickle
+- scipy.stats
+
 To show that our implementation works, you need to set the corresponding Bool to True in the BNReasoner_pruning.py:
 Pruning = False
 check_d_separation = False
